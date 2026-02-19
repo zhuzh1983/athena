@@ -383,14 +383,14 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   // set initial planet properties
   for(int ip=0; ip<psys->np; ++ip){
     char pname[10];
-    sprintf(pname,"mass%d",ip);
+    snprintf(pname, sizeof(pname),"mass%d",ip);
     psys->massset[ip]=pin->GetOrAddReal("planets",pname,1.0e-2);
     psys->mass[ip]=0.0;
-    sprintf(pname,"x%d",ip);
+    snprintf(pname, sizeof(pname),"x%d",ip);
     psys->xp[ip]=pin->GetOrAddReal("planets",pname,1.0);
-    sprintf(pname,"y%d",ip);
+    snprintf(pname, sizeof(pname),"y%d",ip);
     psys->yp[ip]=pin->GetOrAddReal("planets",pname,0.0);
-    sprintf(pname,"z%d",ip);
+    snprintf(pname, sizeof(pname),"z%d",ip);
     psys->zp[ip]=pin->GetOrAddReal("planets",pname,0.0);
   }
 
@@ -411,33 +411,33 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   AllocateUserHistoryOutput(14*np);
   for(int ip=0; ip<psys->np; ++ip){
     char pname[10];
-    sprintf(pname,"fr%d",ip);
+    snprintf(pname, sizeof(pname),"fr%d",ip);
     EnrollUserHistoryOutput(0+14*ip, PlanetForce, pname);
-    sprintf(pname,"ft%d",ip);
+    snprintf(pname, sizeof(pname),"ft%d",ip);
     EnrollUserHistoryOutput(1+14*ip, PlanetForce, pname);
-    sprintf(pname,"fp%d",ip);
+    snprintf(pname, sizeof(pname),"fp%d",ip);
     EnrollUserHistoryOutput(2+14*ip, PlanetForce, pname);
-    sprintf(pname,"fxpp%d",ip);
+    snprintf(pname, sizeof(pname),"fxpp%d",ip);
     EnrollUserHistoryOutput(3+14*ip, PlanetForce, pname);
-    sprintf(pname,"fypp%d",ip);
+    snprintf(pname, sizeof(pname),"fypp%d",ip);
     EnrollUserHistoryOutput(4+14*ip, PlanetForce, pname);
-    sprintf(pname,"fzpp%d",ip);
+    snprintf(pname, sizeof(pname),"fzpp%d",ip);
     EnrollUserHistoryOutput(5+14*ip, PlanetForce, pname);
-    sprintf(pname,"torque%d",ip);
+    snprintf(pname, sizeof(pname),"torque%d",ip);
     EnrollUserHistoryOutput(6+14*ip, PlanetForce, pname);
-    sprintf(pname,"xpp%d",ip);
+    snprintf(pname, sizeof(pname),"xpp%d",ip);
     EnrollUserHistoryOutput(7+14*ip, PlanetForce, pname);
-    sprintf(pname,"ypp%d",ip);
+    snprintf(pname, sizeof(pname),"ypp%d",ip);
     EnrollUserHistoryOutput(8+14*ip, PlanetForce, pname);
-    sprintf(pname,"zpp%d",ip);
+    snprintf(pname, sizeof(pname),"zpp%d",ip);
     EnrollUserHistoryOutput(9+14*ip, PlanetForce, pname);
-    sprintf(pname,"rpp%d",ip);
+    snprintf(pname, sizeof(pname),"rpp%d",ip);
     EnrollUserHistoryOutput(10+14*ip, PlanetForce, pname);
-    sprintf(pname,"tpp%d",ip);
+    snprintf(pname, sizeof(pname),"tpp%d",ip);
     EnrollUserHistoryOutput(11+14*ip, PlanetForce, pname);
-    sprintf(pname,"ppp%d",ip);
+    snprintf(pname, sizeof(pname),"ppp%d",ip);
     EnrollUserHistoryOutput(12+14*ip, PlanetForce, pname);
-    sprintf(pname,"mp%d",ip);
+    snprintf(pname, sizeof(pname),"mp%d",ip);
     EnrollUserHistoryOutput(13+14*ip, PlanetForce, pname);
   }
 
