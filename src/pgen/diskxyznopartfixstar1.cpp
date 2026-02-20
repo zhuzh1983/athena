@@ -511,10 +511,10 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin)
                        +SQR(pfield->bcc(IB3,k,j,i)))/phydro->w(IDN,k,j,i);
         GetCylCoord(rad,phi,z,pcoord->x1v(i),pcoord->x2v(j),pcoord->x3v(k));
         Real omega=sqrt(gm0/(rad*rad*rad));
-//        user_out_var(0,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
-//        user_out_var(1,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
-        user_out_var(0,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
-        user_out_var(1,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
+        user_out_var(0,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
+        user_out_var(1,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
+//        user_out_var(0,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
+//        user_out_var(1,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
       }
     }
   }
@@ -1648,12 +1648,12 @@ void turner(FieldDiffusion *pfdif, MeshBlock *pmb, const AthenaArray<Real> &w,
         pmb->user_out_var(4,k,j,i) = exp(logXe);
         if (eta_A0 != 0){
           Real eta_A=exp(logetaA);
-          Real etaA_lim = dx * dx * 0.3 / dt_etaA;        
+          Real etaA_lim = dx * dx * 1./6.*0.3 / dt_etaA;        
           pfdif->etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i) = std::min(etaA_lim, std::max(eta_A/etaA_scale, TINY_NUMBER));
         }
         if (eta_O0 != 0){
           Real eta_O=exp(logetaO);
-          Real etaO_lim = dx * dx * 0.3 / dt_etaO;
+          Real etaO_lim = dx * dx * 1./6.*0.3 / dt_etaO;
           pfdif->etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i) = std::min(etaO_lim, std::max(eta_O/etaO_scale, TINY_NUMBER));         
         }
       }
