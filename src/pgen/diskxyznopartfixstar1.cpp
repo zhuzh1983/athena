@@ -56,11 +56,12 @@ Real rrigid, origid, rmagsph, denstar, ratmagfloor, ratmagfslope;
 Real mm, b0, beta;
 // non-ideal MHD 
 std::string nonidealfile;
-static AthenaArray<Real> logetaAtable, logetaOtable;
+static AthenaArray<Real> logetaAtable, logetaOtable, logXetable;
 static AthenaArray<Real> logttable, logrhogtable, logzetatable, logbetatable;
 Real dlogt,dlogr,dlogz,dlogb;
 Real eta_O0;         
 Real eta_A0;   
+Real length_scale;
 Real dens_scale;
 Real temp_scale;
 Real kT_mumH_cgs;
@@ -69,6 +70,7 @@ Real etaA_scale;
 Real etaO_scale;
 Real dt_etaA;
 Real dt_etaO;
+Real tempfac;
 static Real firsttime;
 static int bc_ix3, bc_ox3;
 } // namespace
@@ -315,6 +317,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
     if (eta_A0 != 0 || eta_O0 != 0){
       nonidealfile = pin->GetOrAddString("problem","nonideal_file","None");
       EnrollFieldDiffusivity(turner);
+      length_scale  = pin->GetReal("problem", "length_scale");
       dens_scale  = pin->GetReal("problem", "dens_scale");
       temp_scale  = pin->GetReal("problem", "temp_scale");
       kT_mumH_cgs = pin->GetReal("problem", "kT_mumH_cgs");
@@ -323,6 +326,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       etaO_scale  = pin->GetReal("problem", "etaO_scale");
       dt_etaA     = pin->GetReal("problem", "dt_etaA");
       dt_etaO     = pin->GetReal("problem", "dt_etaO");
+      tempfac = pin->GetOrAddReal("problem","tempfac",1.0);
     }
   }
  
@@ -330,6 +334,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
   if (nonidealfile != "None" && (eta_A0 != 0 || eta_O0 != 0)){
     logetaAtable.NewAthenaArray(65,17,25,21);
     logetaOtable.NewAthenaArray(65,17,25,21);
+    logXetable.NewAthenaArray(65,17,25,21);
     logttable.NewAthenaArray(65);
     logrhogtable.NewAthenaArray(17);
     logzetatable.NewAthenaArray(25);
@@ -341,7 +346,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       return;
     }
     int i, j, k, h;
-    Real tread,rhogread,zetaread,betaread,etaAread,etaOread;
+    Real tread,rhogread,zetaread,betaread,etaOread,etaHread,etaAread,nh2read,nelread;
     char * line = NULL;
     size_t len = 0;
     getline(&line, &len, filenonideal);
@@ -349,7 +354,11 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
       for(j=0; j<17; j++){
         for(k=0; k<25; k++){
           for(h=0; h<21; h++){
-            fscanf(filenonideal,"%*d %*d %*d %*d %lf %lf %lf %lf %lf %lf",&tread,&rhogread,&zetaread,&betaread,&etaAread,&etaOread);
+            int n=fscanf(filenonideal,"%*d %*d %*d %*d %lf %lf %lf %lf %lf %lf %lf %lf %lf%*[^\n]\n",&tread,&rhogread,&zetaread,&betaread,&etaOread,&etaHread,&etaAread,&nh2read,&nelread);
+            if (n != 9) {
+              std::cerr << "Read failed (n=" << n << ")\n";
+              std::exit(1);
+            }
             logttable(i)=log(tread);
             logrhogtable(j)=log(rhogread);
             logzetatable(k)=log(zetaread);
@@ -362,6 +371,7 @@ void Mesh::InitUserMeshData(ParameterInput *pin) {
             }
             logetaAtable(i,j,k,h)=log(etaAread);
             logetaOtable(i,j,k,h)=log(etaOread);
+            logXetable(i,j,k,h)=log(nelread/nh2read);
           }
         }
       }
@@ -482,7 +492,7 @@ void MeshBlock::InitUserMeshBlockData(ParameterInput *pin)
   } 
   ruser_meshblock_data[psys->np].NewAthenaArray(ncells3,ncells2,ncells1);
 
-  AllocateUserOutputVariables(2);
+  AllocateUserOutputVariables(5);
   // set total number of particles in the block.
 //;  if(PARTICLES){
 //;    ppar->npar = 1;
@@ -501,8 +511,10 @@ void MeshBlock::UserWorkBeforeOutput(ParameterInput *pin)
                        +SQR(pfield->bcc(IB3,k,j,i)))/phydro->w(IDN,k,j,i);
         GetCylCoord(rad,phi,z,pcoord->x1v(i),pcoord->x2v(j),pcoord->x3v(k));
         Real omega=sqrt(gm0/(rad*rad*rad));
-        user_out_var(0,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
-        user_out_var(1,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
+//        user_out_var(0,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
+//        user_out_var(1,k,j,i) = alfven2/omega/pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
+        user_out_var(0,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ohmic, k,j,i);
+        user_out_var(1,k,j,i) = pfield->fdif.etaB(FieldDiffusion::DiffProcess::ambipolar, k,j,i);
       }
     }
   }
@@ -1606,14 +1618,16 @@ void turner(FieldDiffusion *pfdif, MeshBlock *pmb, const AthenaArray<Real> &w,
         Real dist2 = pow(pmb->pcoord->x1v(i),2)+pow(pmb->pcoord->x2v(j),2)+pow(pmb->pcoord->x3v(k),2);
         Real gz = gm0 * pmb->pcoord->x3v(k)/dist2/sqrt(dist2) * grav_scale;
         Real coldens = std::abs(dens * temp * kT_mumH_cgs / gz);
-        Real zeta = 3.7e-19 + 1e-17 * exp(-coldens/96); 
+        Real zeta1 = 3.7e-19 + 1e-17 * exp(-coldens/96); 
+        Real zeta2 = (6.e-12*exp(-pow(coldens/0.00351,0.4)) + 1.e-15*exp(-pow(coldens/1.64,0.65)))*5.*pow(1.49598e13/length_scale/sqrt(dist2),2.2);
         Real betal = 2.*w(IEN,k,j,i)/pow(bmag(k,j,i),2);  
         Real dx = std::min(std::min(pmb->pcoord->dx1f(i),pmb->pcoord->dx2f(j)),pmb->pcoord->dx3f(k));  
-        Real ilo = std::max(std::min((log(temp)-logttable(0))/dlogt,64-1.e-7),0.);
+        Real tempint = temp*tempfac;
+        Real ilo = std::max(std::min((log(tempint)-logttable(0))/dlogt,64-1.e-7),0.);
         Real jlo = std::max(std::min((log(dens)-logrhogtable(0))/dlogr,16-1.e-7),0.);
-        Real klo = std::max(std::min((log(zeta)-logzetatable(0))/dlogz,24-1.e-7),0.);
+        Real klo = std::max(std::min((log(zeta1+zeta2)-logzetatable(0))/dlogz,24-1.e-7),0.);
         Real hlo = std::max(std::min((log(betal)-logbetatable(0))/dlogb,20-1.e-7),0.);
-        Real logetaA=0., logetaO=0.;
+        Real logetaA=0., logetaO=0.,logXe=0.;
         for(int ic=int(ilo); ic<=int(ilo)+1; ic++){
           Real faci=1-abs(ic-ilo);
           for(int jc=int(jlo); jc<=int(jlo)+1; jc++){
@@ -1624,11 +1638,14 @@ void turner(FieldDiffusion *pfdif, MeshBlock *pmb, const AthenaArray<Real> &w,
                 Real fach=1-abs(hc-hlo);
                 logetaA += logetaAtable(ic,jc,kc,hc)*faci*facj*fack*fach;
                 logetaO += logetaOtable(ic,jc,kc,hc)*faci*facj*fack*fach;
+                logXe += logXetable(ic,jc,kc,hc)*faci*facj*fack*fach;
               }
             }
           }
         }
-
+        pmb->user_out_var(2,k,j,i) = zeta1;
+        pmb->user_out_var(3,k,j,i) = zeta2;
+        pmb->user_out_var(4,k,j,i) = exp(logXe);
         if (eta_A0 != 0){
           Real eta_A=exp(logetaA);
           Real etaA_lim = dx * dx * 0.3 / dt_etaA;        
